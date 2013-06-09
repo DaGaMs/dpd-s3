@@ -170,7 +170,7 @@ S3Bucket.prototype.upload = function(ctx, next) {
 
 S3Bucket.prototype.get = function(ctx, next) {
   var bucket = this;
-  var url = 'https://s3.amazonaws.com/' + this.config.bucket + ctx.url;
+  var url = 'https://' + this.config.bucket + '.s3.amazonaws.com/' + ctx.url;
 
   httpUtil.redirect(ctx.res, url);
 };
