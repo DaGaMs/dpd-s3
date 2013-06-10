@@ -128,8 +128,8 @@ S3Bucket.prototype.handle = function (ctx, next) {
 
 S3Bucket.prototype.uploadFile = function(filename, filesize, mime, file, fn) {
   var bucket = this;
-
-  this.client.putFile(file, filename, function(err, res) { 
+  var headers = { 'x-amz-acl': 'public-read' };
+  this.client.putFile(file, filename, headers, function(err, res) { 
     if (err) return ctx.done(err);
     if (res.statusCode !== 200) {
       bucket.readStream(res, function(err, message) {
@@ -148,6 +148,7 @@ S3Bucket.prototype.upload = function(ctx, next) {
   var headers = {
       'Content-Length': req.headers['content-length']
     , 'Content-Type': req.headers['content-type']
+    , 'x-amz-acl': 'public-read'
   };
 
   this.client.putStream(req, ctx.url, headers, function(err, res) { 
