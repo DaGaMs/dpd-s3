@@ -71,10 +71,10 @@ S3Bucket.prototype.handle = function (ctx, next) {
         if (bucket.events.upload) {
           bucket.events.upload.run(ctx, {url: ctx.url, fileSize: file.size, fileName: file.name}, function(err) {
             if (err) return uploadedFile(err);
-            bucket.uploadFile(file.name, file.size, file.mime, fs.createReadStream(file.path), uploadedFile);
+            bucket.uploadFile(file.name, file.size, file.mime, file.path, uploadedFile);
           });
         } else {
-          bucket.uploadFile(file.name, file.size, file.mime, fs.createReadStream(file.path), uploadedFile);
+          bucket.uploadFile(file.name, file.size, file.mime, file.path, uploadedFile);
         }
       })
       .on('error', function(err) {
@@ -126,15 +126,10 @@ S3Bucket.prototype.handle = function (ctx, next) {
   }
 };
 
-S3Bucket.prototype.uploadFile = function(filename, filesize, mime, stream, fn) {
+S3Bucket.prototype.uploadFile = function(filename, filesize, mime, file, fn) {
   var bucket = this;
 
-  var headers = {
-      'Content-Length': filesize
-    , 'Content-Type': mime
-  };
-
-  this.client.putStream(stream, filename, headers, function(err, res) { 
+  this.client.putFile(file, filename, function(err, res) { 
     if (err) return ctx.done(err);
     if (res.statusCode !== 200) {
       bucket.readStream(res, function(err, message) {

@@ -2,7 +2,7 @@
   "name": "dpd-s3",
   "version": "0.0.2",
   "dependencies": {
-      "knox": "0.1.x"
+      "knox": "0.8.x"
     , "formidable": "1.0.x"
   }
 }
