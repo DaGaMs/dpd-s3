@@ -22,7 +22,7 @@ S3Bucket.label = "S3 Bucket";
 
 S3Bucket.prototype.clientGeneration = true;
 
-S3Bucket.events = ["upload", "get", "delete"];
+S3Bucket.events = ["uploading", "uploaded", "get", "delete"];
 S3Bucket.basicDashboard = {
   settings: [{
       name: 'bucket'
@@ -49,27 +49,38 @@ S3Bucket.prototype.handle = function (ctx, next) {
     var files = [];
     var error;
 
-    var uploadedFile = function(err) {
-      if (err) {
-        error = err;
-        return ctx.done(err);
-      } else if (!err) {
-        remaining--;
-        if (remaining <= 0) {
-          if (req.headers.referer) {
-            httpUtil.redirect(ctx.res, req.headers.referer || '/');
-          } else {
-            ctx.done(null, files);
-          }
+    var uploadedFile = function(err, res, domain) {
+        var done = function (err2) {
+            if (err2) {
+                error = err2;
+                return ctx.done(err2);
+            } else {
+                remaining--;
+                if (remaining <= 0) {
+                    if (req.headers.referer) {
+                        httpUtil.redirect(ctx.res, req.headers.referer || '/');
+                    } else {
+                        ctx.done(null, files);
+                    }
+                }
+            }
         }
-      }
+        if (bucket.events.uploaded) {
+            domain.s3response = res;
+            domain.s3error = err;
+            bucket.events.uploaded.run(ctx, domain, function (err) {
+                done(err);
+            });
+        } else {
+            done(err);
+        }
     };
 
     form.parse(req)
       .on('file', function(name, file) {
         remaining++;
-        if (bucket.events.upload) {
-          bucket.events.upload.run(ctx, {url: ctx.url, fileSize: file.size, fileName: file.name}, function(err) {
+        if (bucket.events.uploading) {
+          bucket.events.uploading.run(ctx, {url: ctx.url, fileSize: file.size, fileName: file.name}, function(err) {
             if (err) return uploadedFile(err);
             bucket.uploadFile(file.name, file.size, file.mime, file.path, uploadedFile);
           });
@@ -90,13 +101,25 @@ S3Bucket.prototype.handle = function (ctx, next) {
     domain.fileSize = ctx.req.headers['content-length'];
     domain.fileName = path.basename(ctx.url);
     
-    if (this.events.upload) {
-      this.events.upload.run(ctx, domain, function(err) {
+    var finally = function (err, res) {
+        if (bucket.events.uploaded) {
+            domain.s3response = res;
+            domain.s3error = err;
+            bucket.events.uploaded.run(ctx, domain, function (err) {
+                if (err) return ctx.done(err);
+                else return ctx.done(err, res);
+            });
+        } else {
+            ctx.done(err, res);
+        }
+    };
+    if (this.events.uploading) {
+      this.events.uploading.run(ctx, domain, function(err) {
         if (err) return ctx.done(err);
-        bucket.upload(ctx, next);
+        bucket.upload(ctx, finally);
       });
     } else {
-      this.upload(ctx, next);
+      this.upload(ctx, finally);
     }
 
   } else if (req.method === "GET") {
@@ -128,15 +151,20 @@ S3Bucket.prototype.handle = function (ctx, next) {
 
 S3Bucket.prototype.uploadFile = function(filename, filesize, mime, file, fn) {
   var bucket = this;
-  var headers = { 'x-amz-acl': 'public-read' };
+  var headers = {
+      'Content-Length': filesize
+    , 'Content-Type': mime
+    , 'x-amz-acl': 'public-read'
+  };
+  
   this.client.putFile(file, filename, headers, function(err, res) { 
     if (err) return ctx.done(err);
     if (res.statusCode !== 200) {
       bucket.readStream(res, function(err, message) {
-        fn(err || message);
+        fn(err || message, null, {"fileName": filename, "fileSize": filesize});
       });
     } else {
-      fn();
+      fn(err, res, {"fileName": filename, "fileSize": filesize});
     }
   });
 };
@@ -155,10 +183,10 @@ S3Bucket.prototype.upload = function(ctx, next) {
     if (err) return ctx.done(err);
     if (res.statusCode !== 200) {
       bucket.readStream(res, function(err, message) {
-        ctx.done(err || message);
+        next(err || message);
       });
     } else {
-      ctx.done();
+      next(err, res);
     }
   });
   req.resume();
