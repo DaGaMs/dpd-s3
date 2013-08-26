@@ -101,7 +101,7 @@ S3Bucket.prototype.handle = function (ctx, next) {
     domain.fileSize = ctx.req.headers['content-length'];
     domain.fileName = path.basename(ctx.url);
     
-    var finally = function (err, res) {
+    var lastly = function (err, res) {
         if (bucket.events.uploaded) {
             domain.s3response = res;
             domain.s3error = err;
@@ -116,10 +116,10 @@ S3Bucket.prototype.handle = function (ctx, next) {
     if (this.events.uploading) {
       this.events.uploading.run(ctx, domain, function(err) {
         if (err) return ctx.done(err);
-        bucket.upload(ctx, finally);
+        bucket.upload(ctx, lastly);
       });
     } else {
-      this.upload(ctx, finally);
+      this.upload(ctx, lastly);
     }
 
   } else if (req.method === "GET") {
