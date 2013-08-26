@@ -13,6 +13,7 @@ function S3Bucket(name, options) {
         key: this.config.key
       , secret: this.config.secret
       , bucket: this.config.bucket
+      , region: 'us-west-2'
     });
   }
 }
@@ -82,10 +83,10 @@ S3Bucket.prototype.handle = function (ctx, next) {
         if (bucket.events.uploading) {
           bucket.events.uploading.run(ctx, {url: ctx.url, fileSize: file.size, fileName: file.name}, function(err) {
             if (err) return uploadedFile(err);
-            bucket.uploadFile(file.name, file.size, file.mime, file.path, uploadedFile);
+            bucket.uploadFile(file.name, file.size, file.type, file.path, uploadedFile);
           });
         } else {
-          bucket.uploadFile(file.name, file.size, file.mime, file.path, uploadedFile);
+          bucket.uploadFile(file.name, file.size, file.type, file.path, uploadedFile);
         }
       })
       .on('error', function(err) {
@@ -152,20 +153,25 @@ S3Bucket.prototype.handle = function (ctx, next) {
 S3Bucket.prototype.uploadFile = function(filename, filesize, mime, file, fn) {
   var bucket = this;
   var headers = {
-      'Content-Length': filesize
-    , 'Content-Type': mime
-    , 'x-amz-acl': 'public-read'
+    'x-amz-acl': 'public-read'
   };
+  if (filesize) headers['Content-Length'] = filesize;
+  if (mime) headers['Content-Type'] = mime;
   
-  this.client.putFile(file, filename, headers, function(err, res) { 
+  console.debug("Using headers");
+  console.debug(headers);
+  
+  this.client.putFile(file, filename, function(err, res) {
     if (err) return ctx.done(err);
-    if (res.statusCode !== 200) {
-      bucket.readStream(res, function(err, message) {
-        fn(err || message, null, {"fileName": filename, "fileSize": filesize});
-      });
-    } else {
-      fn(err, res, {"fileName": filename, "fileSize": filesize});
-    }
+    bucket.readStream(res, function(err, message) {
+        if (res.statusCode !== 200) {
+            console.warn("Request returned with status code "+res.statusCode+" and error "+err+":");
+            console.warn(message);
+            fn(err || message, null, {"fileName": filename, "fileSize": filesize});
+        } else {
+            fn(null, message, {"fileName": filename, "fileSize": filesize});
+        }
+    });
   });
 };
 
@@ -194,7 +200,7 @@ S3Bucket.prototype.upload = function(ctx, next) {
 
 S3Bucket.prototype.get = function(ctx, next) {
   var bucket = this;
-  var url = 'https://' + this.config.bucket + '.s3.amazonaws.com' + ctx.url;
+  var url = 'http://' + this.config.bucket + '.s3.amazonaws.com' + ctx.url;
 
   httpUtil.redirect(ctx.res, url);
 };
