@@ -161,7 +161,7 @@ S3Bucket.prototype.uploadFile = function(filename, filesize, mime, file, fn) {
   console.debug("Using headers");
   console.debug(headers);
   
-  this.client.putFile(file, filename, function(err, res) {
+  this.client.putFile(file, filename, headers, function(err, res) {
     if (err) return ctx.done(err);
     bucket.readStream(res, function(err, message) {
         if (res.statusCode !== 200) {
