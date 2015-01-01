@@ -4,7 +4,8 @@ var knox = require('knox')
   , formidable = require('formidable')
   , fs = require('fs')
   , util = require('util')
-  , path = require('path');
+  , path = require('path')
+  , debug = require('debug')('dpd-s3');
 
 function S3Bucket(name, options) {
   Resource.apply(this, arguments);
@@ -158,15 +159,15 @@ S3Bucket.prototype.uploadFile = function(filename, filesize, mime, file, fn) {
   if (filesize) headers['Content-Length'] = filesize;
   if (mime) headers['Content-Type'] = mime;
   
-  console.debug("Using headers");
-  console.debug(headers);
+  debug("Using headers");
+  debug(headers);
   
   this.client.putFile(file, filename, headers, function(err, res) {
     if (err) return ctx.done(err);
     bucket.readStream(res, function(err, message) {
         if (res.statusCode !== 200) {
-            console.warn("Request returned with status code "+res.statusCode+" and error "+err+":");
-            console.warn(message);
+            console.log("Request returned with status code "+res.statusCode+" and error "+err+":");
+            console.log(message);
             fn(err || message, null, {"fileName": filename, "fileSize": filesize});
         } else {
             fn(null, message, {"fileName": filename, "fileSize": filesize});

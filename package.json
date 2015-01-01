@@ -4,6 +4,8 @@
   "dependencies": {
     "knox": "0.8.x",
     "formidable": "1.0.x",
-    "xml2js": "~0.4.4"
+    "xml2js": "~0.4.4",
+    "debug": "^2.1.0"
+
   }
 }
